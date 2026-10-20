@@ -1,0 +1,17 @@
+{% if search and not search.is_running %}
+<form id="filters" class="mb-4 grid gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-3 lg:grid-cols-6"
+      hx-get="{% url 'job_results' %}" hx-target="#table" hx-trigger="change, keyup changed delay:400ms from:#id_q" hx-swap="innerHTML">
+  <div class="lg:col-span-2">{% include "partials/field.html" with field=filter_form.q %}</div>
+  {% include "partials/field.html" with field=filter_form.source %}
+  {% include "partials/field.html" with field=filter_form.posted %}
+  {% include "partials/field.html" with field=filter_form.min_score %}
+  {% include "partials/field.html" with field=filter_form.sort %}
+  <label class="flex items-center gap-2 text-sm sm:col-span-3 lg:col-span-6">{{ filter_form.has_email }} Only jobs I can email</label>
+</form>
+
+<div id="table">
+{% include "jobs/_table.html" %}
+</div>
+{% elif search %}
+<p class="text-sm text-slate-500">Results will appear here when the search finishes.</p>
+{% endif %}

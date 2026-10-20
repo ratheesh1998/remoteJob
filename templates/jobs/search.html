@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Find jobs · RemoteApply{% endblock %}
+{% block content %}
+<div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+  <div class="text-sm">
+    <p class="font-semibold">Searching remote jobs for: {{ profile.designation }}</p>
+    <p class="text-slate-500">{% if profile.alternate_titles %}Also: {{ profile.alternate_titles|join:", " }}. {% endif %}Remote-only sources.</p>
+  </div>
+  <form method="post" action="{% url 'job_start' %}">
+    {% csrf_token %}
+    <button class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50" {% if search.is_running %}disabled{% endif %}>
+      {% if search %}Search again{% else %}Find remote jobs{% endif %}
+    </button>
+  </form>
+</div>
+
+{% include "jobs/_progress.html" with sources=search.sources.all %}
+
+{% if optional_off %}
+<p class="mt-2 text-xs text-slate-500">Optional sources not enabled (no API key in .env): {{ optional_off|join:", " }}.</p>
+{% endif %}
+
+<div id="results" class="mt-5" hx-get="{% url 'job_results' %}" hx-trigger="searchDone from:body" hx-swap="innerHTML">
+  {% include "jobs/_results.html" %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  // Selection lives in JS so it survives filtering, sorting and paging (the table is re-rendered by HTMX).
+  var selected = new Set();
+  var bar = document.getElementById('select-bar');
+
+  function emailIds() {
+    var el = document.getElementById('email-ids');
+    return el ? JSON.parse(el.textContent) : [];
+  }
+  function refresh() {
+    document.querySelectorAll('.job-check').forEach(function (cb) {
+      cb.checked = selected.has(cb.value);
+    });
+    var n = selected.size;
+    var count = document.getElementById('select-count');
+    var wrap = document.getElementById('select-bar');
+    if (count) count.textContent = n;
+    if (wrap) wrap.classList.toggle('hidden', n === 0);
+    var all = document.getElementById('select-page');
+    if (all) {
+      var boxes = Array.prototype.slice.call(document.querySelectorAll('.job-check'));
+      all.checked = boxes.length > 0 && boxes.every(function (b) { return b.checked; });
+    }
+  }
+  document.body.addEventListener('change', function (e) {
+    if (e.target.classList.contains('job-check')) {
+      e.target.checked ? selected.add(e.target.value) : selected.delete(e.target.value);
+      refresh();
+    } else if (e.target.id === 'select-page') {
+      document.querySelectorAll('.job-check').forEach(function (cb) {
+        e.target.checked ? selected.add(cb.value) : selected.delete(cb.value);
+      });
+      refresh();
+    }
+  });
+  document.body.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-action]');
+    if (!t) return;
+    if (t.dataset.action === 'select-email') {
+      emailIds().forEach(function (id) { selected.add(String(id)); });
+      refresh();
+    } else if (t.dataset.action === 'clear') {
+      selected.clear();
+      refresh();
+    }
+  });
+  // htmx re-applies the server-rendered attributes during its settle step, so refresh after that.
+  document.body.addEventListener('htmx:afterSettle', refresh);
+  document.body.addEventListener('submit', function (e) {
+    if (e.target.id !== 'review-form') return;
+    e.target.querySelectorAll('input[name=job_ids]').forEach(function (i) { i.remove(); });
+    selected.forEach(function (id) {
+      var i = document.createElement('input');
+      i.type = 'hidden'; i.name = 'job_ids'; i.value = id;
+      e.target.appendChild(i);
+    });
+  });
+  refresh();
+})();
+</script>
+{% endblock %}

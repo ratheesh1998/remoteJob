@@ -33,7 +33,9 @@ class SingletonModel(models.Model):
 class SMTPConfig(SingletonModel):
     SSL = "ssl"
     STARTTLS = "starttls"
-    SECURITY_CHOICES = [(SSL, "SSL/TLS"), (STARTTLS, "STARTTLS")]
+    NONE = "none"   # unencrypted; only accepted for local test servers such as MailHog
+    SECURITY_CHOICES = [(SSL, "SSL/TLS"), (STARTTLS, "STARTTLS"), (NONE, "None (local testing only)")]
+    LOCAL_TEST_HOSTS = ("localhost", "127.0.0.1", "::1", "mailhog", "mailpit", "host.docker.internal")
 
     host = models.CharField(max_length=255, blank=True)
     port = models.PositiveIntegerField(default=465)

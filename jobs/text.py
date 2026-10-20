@@ -40,31 +40,46 @@ EMAIL_RE = re.compile(
 )
 _REJECT_LOCAL = re.compile(
     r"^(no[-_.]?reply|do[-_.]?not[-_.]?reply|donotreply|mailer-daemon|postmaster|unsubscribe|abuse|privacy|"
-    r"webmaster|bounce|notifications?)", re.I)
+    r"webmaster|bounce|notifications?|legal|dpo|security|press|media|billing|invoices?|compliance|"
+    r"\w*accommodations?|accessibility|disabilit\w*|ada|ethics|whistleblower|hello-?world)", re.I)
 _REJECT_DOMAIN = re.compile(
     r"(^|\.)(example\.(com|org|net)|domain\.com|yourcompany\.com|email\.com|sentry\.io|wixpress\.com)$", re.I)
 _FILE_TLDS = {"png", "jpg", "jpeg", "gif", "svg", "webp", "css", "js", "ico", "pdf"}
 _PREFERRED_LOCAL = re.compile(r"^(jobs?|careers?|hr|recruit\w*|apply|applications?|hiring|talent|people|join|work)", re.I)
+# Words near an address that say it is NOT for applications (accessibility help, privacy requests, ...).
+_NEGATIVE_CONTEXT = re.compile(
+    r"accommodat|disabilit|accessib|privacy|data protection|gdpr|unsubscribe|complain|whistle|report (?:a |an )?"
+    r"(?:concern|issue|violation|abuse)|press inquir|media inquir|legal notice|opt[- ]out", re.I)
+_POSITIVE_CONTEXT = re.compile(
+    r"apply|application|resume|r\u00e9sum\u00e9|\bcv\b|cover letter|send (?:us |your )|submit|hiring|recruit|careers?", re.I)
+_WINDOW = 120
 
 
 def extract_application_email(text: str | None) -> str | None:
-    """Return the most plausible application email address in the text, else None."""
+    """Return the most plausible application email address in the text, else None.
+
+    Addresses are rejected by local part (noreply, accommodations, privacy ...) or when the surrounding
+    words say they serve another purpose. Among the rest, hiring-style addresses and addresses next to
+    words like "apply" / "send your CV" win; otherwise the first one is used.
+    """
     if not text:
         return None
-    candidates = []
-    for m in EMAIL_RE.finditer(text):
+    best, best_rank = None, None
+    for index, m in enumerate(EMAIL_RE.finditer(text)):
         addr = m.group(0).rstrip(".").lower()
         local, _, domain = addr.rpartition("@")
         if _REJECT_LOCAL.match(local) or _REJECT_DOMAIN.search(domain):
             continue
         if domain.rsplit(".", 1)[-1] in _FILE_TLDS:
             continue
-        if addr not in candidates:
-            candidates.append(addr)
-    for addr in candidates:
-        if _PREFERRED_LOCAL.match(addr.split("@")[0]):
-            return addr
-    return candidates[0] if candidates else None
+        window = text[max(0, m.start() - _WINDOW):m.end() + _WINDOW]
+        if _NEGATIVE_CONTEXT.search(window) and not _PREFERRED_LOCAL.match(local):
+            continue
+        lead_in = text[max(0, m.start() - 80):m.start()]    # "...to apply send your CV to <address>"
+        rank = (-(2 if _PREFERRED_LOCAL.match(local) else 0) - (1 if _POSITIVE_CONTEXT.search(lead_in) else 0), index)
+        if best_rank is None or rank < best_rank:
+            best, best_rank = addr, rank
+    return best
 
 
 def parse_date(value) -> datetime | None:

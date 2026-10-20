@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Help · RemoteApply{% endblock %}
+{% block content %}
+<div class="max-w-3xl space-y-8 text-sm leading-6">
+  <section id="gmail-app-password" class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <h2 class="mb-2 text-lg font-semibold">How to create a Gmail App Password</h2>
+    <ol class="list-decimal space-y-1 pl-5">
+      <li>Open your Google Account &rarr; <strong>Security</strong> and turn on <strong>2-Step Verification</strong> (required).</li>
+      <li>Go to <a class="text-indigo-600 underline" href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">myaccount.google.com/apppasswords</a>.</li>
+      <li>Type a name such as "RemoteApply" and click <strong>Create</strong>.</li>
+      <li>Copy the 16-character password Google shows (spaces do not matter) and paste it into the <em>Password</em> field on the <a class="text-indigo-600 underline" href="{% url 'smtp_setup' %}">Email settings</a> page.</li>
+    </ol>
+    <p class="mt-2 text-slate-600">Your normal Google password will not work. If you do not see the App Passwords page, your account may be a managed Workspace account, or 2-Step Verification is off.</p>
+  </section>
+
+  <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <h2 class="mb-2 text-lg font-semibold">SMTP settings</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="border-b text-xs uppercase text-slate-500"><tr><th class="py-2 pr-4">Provider</th><th class="pr-4">Host</th><th class="pr-4">Port</th><th class="pr-4">Security</th><th>Username</th></tr></thead>
+        <tbody class="divide-y">
+          <tr><td class="py-2 pr-4 font-medium">Gmail</td><td class="pr-4">smtp.gmail.com</td><td class="pr-4">465</td><td class="pr-4">SSL/TLS</td><td>your full Gmail address</td></tr>
+          <tr><td class="py-2 pr-4 font-medium">Gmail (alt.)</td><td class="pr-4">smtp.gmail.com</td><td class="pr-4">587</td><td class="pr-4">STARTTLS</td><td>your full Gmail address</td></tr>
+          <tr><td class="py-2 pr-4 font-medium">Outlook / Hotmail</td><td class="pr-4">smtp-mail.outlook.com</td><td class="pr-4">587</td><td class="pr-4">STARTTLS</td><td>your full address</td></tr>
+          <tr><td class="py-2 pr-4 font-medium">Microsoft 365</td><td class="pr-4">smtp.office365.com</td><td class="pr-4">587</td><td class="pr-4">STARTTLS</td><td>your full address</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="mt-2 text-slate-600">Outlook.com accounts with two-step verification need an app password. Some Microsoft 365 tenants disable SMTP AUTH; ask your admin if login fails.</p>
+  </section>
+
+  <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <h2 class="mb-2 text-lg font-semibold">Why do some jobs only say "Apply on site"?</h2>
+    <p>Most employers collect applications through their own forms. We can only email a job when its description contains a plausible application address. Jobs without one show <em>Apply on site</em> and open the original posting, and they cannot be added to a bulk email.</p>
+  </section>
+
+  <section class="rounded-lg border border-amber-300 bg-amber-50 p-5 shadow-sm">
+    <h2 class="mb-2 text-lg font-semibold text-amber-900">Responsible use</h2>
+    <ul class="list-disc space-y-1 pl-5 text-amber-900">
+      <li>Send only applications that are relevant to you and the role. Do not mass-mail jobs you would not actually take.</li>
+      <li>You are responsible for every email sent from your account, and for following the email and anti-spam laws that apply to you and to the recipient (for example CAN-SPAM, GDPR/PECR, CASL).</li>
+      <li>Keep the daily limit low. Providers can suspend accounts that send many similar messages quickly.</li>
+      <li>This app has no login. Run it only on your own machine. Do not expose it to the internet.</li>
+      <li>Review every email in the preview. AI-written text is checked against your CV, but you are the one who sends it.</li>
+    </ul>
+  </section>
+</div>
+{% endblock %}

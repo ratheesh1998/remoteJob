@@ -1,0 +1,40 @@
+<div id="drafts" {% if pending_count %}hx-get="{% url 'applications_review_drafts' %}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+{% if pending_count %}
+  <div class="rounded-lg border border-slate-200 bg-white p-6 text-sm shadow-sm">
+    <span class="inline-flex items-center gap-2 font-medium text-indigo-700"><span class="h-3 w-3 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent"></span>
+    Preparing emails… {{ total|add:"0" }} total, {{ pending_count }} still being written.</span>
+  </div>
+{% else %}
+  {% if over_limit %}
+  <div class="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+    You have {{ total }} applications but only {{ remaining_today }} can be sent today (daily limit {{ limit }}, {{ sent_today }} already sent). The rest will be marked "not sent" and you can retry them tomorrow from the Applications page.
+  </div>
+  {% endif %}
+  <form method="post" action="{% url 'applications_confirm' %}" class="space-y-5">
+    {% csrf_token %}
+    {% for card in cards %}
+    <div id="draft-{{ card.app.id }}" class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <div class="mb-3 flex items-start justify-between gap-3">
+        <div class="text-sm">
+          <p class="font-semibold">{{ card.app.job_title }} <span class="font-normal text-slate-500">at {{ card.app.company }}</span></p>
+          <p class="text-slate-500">To: {{ card.app.recipient }} &middot; CV attached</p>
+          {% if card.app.draft_note %}<p class="text-xs text-amber-700">{{ card.app.draft_note }}</p>{% endif %}
+        </div>
+        <button type="button" hx-post="{% url 'applications_remove' card.app.id %}" hx-target="#draft-{{ card.app.id }}" hx-swap="outerHTML"
+                class="shrink-0 rounded border border-slate-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50">Remove</button>
+      </div>
+      {% include "partials/field.html" with field=card.form.subject %}
+      <div class="mt-3">{% include "partials/field.html" with field=card.form.body %}</div>
+      <p class="mt-1 text-xs {% if card.words > max_words %}text-amber-700{% else %}text-slate-500{% endif %}">{{ card.words }} words (aim for under {{ max_words }})</p>
+    </div>
+    {% endfor %}
+    <div class="sticky bottom-0 flex items-center justify-between rounded-lg border border-slate-200 bg-white/95 p-4 shadow-lg">
+      <p class="text-sm text-slate-600">{{ total }} email{{ total|pluralize }} ready. Nothing is sent until you confirm.</p>
+      <div class="flex gap-3">
+        <a href="{% url 'job_search' %}" class="rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50">Back to jobs</a>
+        <button class="rounded-md bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Confirm and queue</button>
+      </div>
+    </div>
+  </form>
+{% endif %}
+</div>

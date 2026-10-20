@@ -1,8 +1,9 @@
+import json
 import logging
 
 from django.contrib import messages
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.http import require_http_methods
 
 from . import mailer
 from .forms import DeleteAllForm, SMTPConfigForm
@@ -44,7 +45,7 @@ def smtp_setup(request):
     else:
         form = SMTPConfigForm(instance=config)
     return render(request, "core/smtp.html", {
-        "form": form, "config": config, "test_result": test_result, "presets": PRESETS,
+        "form": form, "config": config, "test_result": test_result, "presets": {k: json.dumps(v) for k, v in PRESETS.items()},
         "page_hint": "Enter your SMTP details, then send a test email. Everything else unlocks once the test succeeds.",
     })
 

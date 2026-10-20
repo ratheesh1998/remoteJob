@@ -29,13 +29,16 @@ def open_connection(config: SMTPConfig):
         conn = smtplib.SMTP(config.host, config.port, timeout=timeout)
         try:
             conn.ehlo()
-            conn.starttls(context=context)
-            conn.ehlo()
+            if config.security == SMTPConfig.STARTTLS:
+                conn.starttls(context=context)
+                conn.ehlo()
         except Exception:
             conn.close()
             raise
     try:
-        conn.login(config.username, config.get_password())
+        # Local test servers (security "none") often do not offer AUTH at all.
+        if config.security != SMTPConfig.NONE or conn.has_extn("auth"):
+            conn.login(config.username, config.get_password())
     except Exception:
         conn.close()
         raise

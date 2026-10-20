@@ -1,0 +1,5 @@
+<span class="rounded-full px-2 py-0.5 text-xs font-semibold
+  {% if a.status == 'sent' %}bg-emerald-100 text-emerald-800
+  {% elif a.status == 'failed' %}bg-red-100 text-red-800
+  {% elif a.status == 'deferred' %}bg-amber-100 text-amber-800
+  {% else %}bg-slate-100 text-slate-700{% endif %}">{{ a.get_status_display }}</span>

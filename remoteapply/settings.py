@@ -1,6 +1,7 @@
 """RemoteApply settings. Single-user app: no auth, no sessions, no admin."""
 import os
 import secrets
+import sys
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -118,7 +119,9 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 6 * 1024 * 1024
 REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
-CELERY_TASK_ALWAYS_EAGER = env_bool("CELERY_TASK_ALWAYS_EAGER", False)
+# Tasks run inline under `manage.py test` so tests never need a broker.
+TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"
+CELERY_TASK_ALWAYS_EAGER = TESTING or env_bool("CELERY_TASK_ALWAYS_EAGER", False)
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
@@ -127,6 +130,10 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_TIMEZONE = TIME_ZONE
 # A send scheduled with an ETA must not be redelivered early/duplicated by the broker.
 CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 6 * 3600}
+CELERY_BEAT_SCHEDULE = {
+    "expire-stale-searches": {"task": "jobs.tasks.expire_stale_searches", "schedule": 60.0},
+    "rescue-orphaned-applications": {"task": "applications.tasks.rescue_orphaned_applications", "schedule": 300.0},
+}
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_ACKS_LATE = False
 
@@ -137,7 +144,7 @@ ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-5-5").strip()
 # --- Job sources ---
 JOB_SOURCE_TIMEOUT = int(os.environ.get("JOB_SOURCE_TIMEOUT", "20"))
 JOB_SOURCE_RETRIES = int(os.environ.get("JOB_SOURCE_RETRIES", "2"))
-MIN_MATCH_SCORE_TO_KEEP = int(os.environ.get("MIN_MATCH_SCORE_TO_KEEP", "10"))
+MIN_MATCH_SCORE_TO_KEEP = int(os.environ.get("MIN_MATCH_SCORE_TO_KEEP", "20"))
 ADZUNA_APP_ID = os.environ.get("ADZUNA_APP_ID", "").strip()
 ADZUNA_APP_KEY = os.environ.get("ADZUNA_APP_KEY", "").strip()
 ADZUNA_COUNTRY = os.environ.get("ADZUNA_COUNTRY", "us").strip()

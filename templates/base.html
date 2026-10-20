@@ -1,0 +1,71 @@
+{% load static %}<!doctype html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>{% block title %}RemoteApply{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+</head>
+<body class="min-h-full text-slate-800" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  {% if non_local_host %}
+  <div class="bg-red-600 px-4 py-2 text-center text-sm font-semibold text-white" role="alert">
+    This app has no login. Do not expose it to the internet.
+  </div>
+  {% endif %}
+
+  <header class="border-b border-slate-200 bg-white">
+    <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+      <a href="{% url 'index' %}" class="text-lg font-bold text-indigo-600">RemoteApply</a>
+      <nav class="flex gap-4 text-sm font-medium text-slate-600">
+        <a href="{% url 'applications_history' %}" class="hover:text-indigo-600">Applications</a>
+        <a href="{% url 'smtp_setup' %}" class="hover:text-indigo-600">Email settings</a>
+        <a href="{% url 'help' %}" class="hover:text-indigo-600">Help</a>
+      </nav>
+    </div>
+    <ol class="mx-auto flex max-w-6xl flex-wrap gap-x-2 gap-y-1 px-4 pb-3 text-sm" aria-label="Progress">
+      {% for step in steps %}
+      <li class="flex items-center">
+        {% if step.done %}
+          <a href="{{ step.url }}" class="flex items-center gap-2 rounded-full px-3 py-1 text-emerald-700 hover:bg-emerald-50 {% if step.active %}ring-1 ring-emerald-400{% endif %}">
+            <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-xs text-white">&#10003;</span>
+            {{ step.number }}. {{ step.label }}
+          </a>
+        {% elif step.current %}
+          <a href="{{ step.url }}" class="flex items-center gap-2 rounded-full bg-indigo-600 px-3 py-1 font-semibold text-white">
+            <span class="flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs text-indigo-600">{{ step.number }}</span>
+            {{ step.label }}
+          </a>
+        {% else %}
+          <span class="flex cursor-not-allowed items-center gap-2 rounded-full px-3 py-1 text-slate-400" title="Finish the earlier steps first">
+            <span class="flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 text-xs">&#128274;</span>
+            {{ step.number }}. {{ step.label }}
+          </span>
+        {% endif %}
+      </li>
+      {% if not forloop.last %}<li class="text-slate-300" aria-hidden="true">&rsaquo;</li>{% endif %}
+      {% endfor %}
+    </ol>
+  </header>
+
+  <main class="mx-auto max-w-6xl px-4 py-6">
+    {% if messages %}
+      {% for message in messages %}
+      <div class="mb-4 rounded-md border px-4 py-3 text-sm
+        {% if message.tags == 'error' %}border-red-300 bg-red-50 text-red-800
+        {% elif message.tags == 'success' %}border-emerald-300 bg-emerald-50 text-emerald-800
+        {% else %}border-sky-300 bg-sky-50 text-sky-800{% endif %}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+    {% if page_hint %}<p class="mb-5 text-base text-slate-600">{{ page_hint }}</p>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="mx-auto max-w-6xl px-4 py-8 text-xs text-slate-500">
+    <a href="{% url 'delete_all' %}" class="text-red-600 hover:underline">Delete all my data</a>
+    <span class="mx-2">&middot;</span> RemoteApply runs only on your machine and sends email from your own account.
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

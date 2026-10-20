@@ -2,8 +2,25 @@ from django import forms
 
 from .models import SMTPConfig
 
+INPUT_CLASS = ("block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm "
+               "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500")
 
-class SMTPConfigForm(forms.ModelForm):
+
+class StyledFormMixin:
+    """Give every widget the same Tailwind classes."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            w = field.widget
+            if isinstance(w, (forms.CheckboxInput, forms.FileInput)):
+                w.attrs.setdefault("class", "h-4 w-4 rounded border-slate-300 text-indigo-600"
+                                   if isinstance(w, forms.CheckboxInput) else "block w-full text-sm")
+            else:
+                w.attrs["class"] = f"{w.attrs.get('class', '')} {INPUT_CLASS}".strip()
+
+
+class SMTPConfigForm(StyledFormMixin, forms.ModelForm):
     # Write-only: never rendered back (render_value=False) and never part of the model form fields.
     password = forms.CharField(
         label="Password / app password",
@@ -49,6 +66,10 @@ class SMTPConfigForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        if cleaned.get("security") == SMTPConfig.NONE and \
+                (cleaned.get("host") or "").lower() not in SMTPConfig.LOCAL_TEST_HOSTS:
+            self.add_error("security", "Unencrypted SMTP is only allowed for local test servers "
+                                       "(localhost, mailhog). Use SSL/TLS or STARTTLS for real providers.")
         if not cleaned.get("password") and not self.instance.has_password:
             self.add_error("password", "Enter your password or app password.")
         return cleaned
@@ -67,7 +88,7 @@ class SMTPConfigForm(forms.ModelForm):
         return obj
 
 
-class DeleteAllForm(forms.Form):
+class DeleteAllForm(StyledFormMixin, forms.Form):
     confirm = forms.CharField(label='Type DELETE to confirm')
 
     def clean_confirm(self):

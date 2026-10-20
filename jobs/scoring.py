@@ -8,6 +8,10 @@ _STOP = {
     "jr", "sr", "lead", "staff", "principal", "mid", "level", "ii", "iii", "iv", "intern", "internship",
 }
 _TOKEN_RE = re.compile(r"[a-z0-9+#.]+")
+# Role nouns shared by thousands of unrelated jobs: a match on "engineer" alone says little.
+_GENERIC = {"engineer", "developer", "engineering", "programmer", "specialist", "analyst", "manager",
+            "consultant", "architect", "designer", "software", "associate", "officer", "expert", "professional"}
+GENERIC_WEIGHT = 0.3
 TITLE_WEIGHT, SKILL_WEIGHT = 50, 50
 ALT_TITLE_FACTOR = 0.85
 SKILL_DENOMINATOR_CAP = 8   # matching 8+ of the CV's skills earns the full skill score
@@ -40,7 +44,9 @@ def title_score(job_title: str, designation: str, alternates: list[str]) -> floa
         if _contains_sequence(job_tokens, t_tokens):
             value = 1.0
         else:
-            value = 0.8 * len(set(t_tokens) & job_set) / len(set(t_tokens))
+            weight = lambda t: GENERIC_WEIGHT if t in _GENERIC else 1.0
+            wanted = set(t_tokens)
+            value = 0.8 * sum(weight(t) for t in wanted & job_set) / sum(weight(t) for t in wanted)
         best = max(best, value * factor)
     return best
 
@@ -75,3 +81,15 @@ def match_score(job: JobData, designation: str, alternates: list[str], skills: l
     else:
         score = 0
     return max(0, min(100, round(score)))
+
+
+MIN_TITLE_RELEVANCE = 0.25    # some real overlap with a CV title...
+STRONG_SCORE = 60             # ...or a score that needs both title overlap and strong skills
+
+
+def is_relevant(job: JobData, designation: str, alternates: list[str], skills: list[str], min_score: int) -> bool:
+    """Keep a job only if it matches the designation, not merely a couple of shared skills."""
+    score = job.match_score
+    if score < min_score:
+        return False
+    return score >= STRONG_SCORE or title_score(job.title, designation, alternates) >= MIN_TITLE_RELEVANCE

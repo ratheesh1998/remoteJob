@@ -3,10 +3,12 @@ import re
 from django import forms
 from django.core.exceptions import ValidationError
 
+from core.forms import StyledFormMixin
+
 from . import parsing
 
 
-class CVUploadForm(forms.Form):
+class CVUploadForm(StyledFormMixin, forms.Form):
     file = forms.FileField(label="CV (PDF or DOCX, max 5 MB)")
 
     def clean_file(self):
@@ -29,7 +31,7 @@ def split_list(value: str, limit: int, maxlen: int = 80) -> list[str]:
     return out
 
 
-class CVConfirmForm(forms.Form):
+class CVConfirmForm(StyledFormMixin, forms.Form):
     designation = forms.CharField(max_length=255, label="Designation (job title)")
     alternate_titles = forms.CharField(
         required=False, label="Alternate titles", widget=forms.Textarea(attrs={"rows": 2}),

@@ -1,0 +1,57 @@
+# RemoteApply: single-user app. Every published port is bound to 127.0.0.1 on purpose (there is no login).
+x-app: &app
+  build: .
+  env_file:
+    - path: .env
+      required: false
+  environment: &app-env
+    REDIS_URL: redis://redis:6379/0
+    DATA_DIR: /data
+    ALLOWED_HOSTS: ${ALLOWED_HOSTS:-127.0.0.1,localhost}
+  volumes:
+    - appdata:/data
+  restart: unless-stopped
+
+services:
+  web:
+    <<: *app
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8000}:8000"   # change WEB_PORT if 8000 is taken
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/help/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  worker:
+    <<: *app
+    command: celery -A remoteapply worker --loglevel=info --concurrency=4
+    depends_on:
+      web:
+        condition: service_healthy   # web runs the migrations
+
+  beat:
+    <<: *app
+    command: celery -A remoteapply beat --loglevel=info --schedule=/data/celerybeat-schedule
+    depends_on:
+      web:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  # Catches test emails. In the app use: host mailhog, port 1025, security "None (local testing only)".
+  # Inbox UI: http://127.0.0.1:8025
+  mailhog:
+    image: mailhog/mailhog
+    platform: linux/amd64   # MailHog publishes no arm64 image; runs under emulation on Apple Silicon
+    ports:
+      - "127.0.0.1:${MAILHOG_PORT:-8025}:8025"
+    restart: unless-stopped
+
+volumes:
+  appdata:
