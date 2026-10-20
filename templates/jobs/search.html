@@ -14,12 +14,16 @@
   </form>
 </div>
 
-<div class="mb-5 flex flex-wrap items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
-  <span class="font-medium">Also search LinkedIn (remote filter on):</span>
+<div class="mb-5 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+  <p><span class="font-medium">LinkedIn jobs</span> are included in the search above. <span class="font-medium">LinkedIn posts</span> need your own login, so RemoteApply can't read them. Open them yourself:</p>
+  <ul class="mt-2 space-y-1">
   {% for l in linkedin_links %}
-    <a href="{{ l.url }}" target="_blank" rel="noopener noreferrer" class="rounded-md border border-sky-300 bg-white px-3 py-1 font-medium text-sky-800 hover:bg-sky-100">{{ l.title }} &#8599;</a>
+    <li>{{ l.title }}:
+      <a href="{{ l.posts_url }}" target="_blank" rel="noopener noreferrer" class="font-medium text-sky-800 underline">hiring posts (past week) &#8599;</a>
+      &middot; <a href="{{ l.url }}" target="_blank" rel="noopener noreferrer" class="text-sky-800 underline">remote jobs on LinkedIn &#8599;</a></li>
   {% endfor %}
-  <span class="text-xs text-sky-700">Opens linkedin.com in a new tab. RemoteApply does not read LinkedIn; apply there directly.</span>
+  </ul>
+  <p class="mt-2 text-xs text-sky-700">If a post lists an email address, apply from your mail client or add it yourself.</p>
 </div>
 
 {% include "jobs/_progress.html" with sources=search.sources.all %}

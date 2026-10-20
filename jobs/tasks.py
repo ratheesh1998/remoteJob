@@ -13,8 +13,8 @@ log = logging.getLogger(__name__)
 @shared_task(
     bind=True,
     max_retries=settings.JOB_SOURCE_RETRIES,
-    soft_time_limit=settings.JOB_SOURCE_TIMEOUT * 3,
-    time_limit=settings.JOB_SOURCE_TIMEOUT * 3 + 15,
+    soft_time_limit=settings.JOB_SOURCE_TIMEOUT * 6,   # LinkedIn makes ~25 paced requests
+    time_limit=settings.JOB_SOURCE_TIMEOUT * 6 + 15,
 )
 def fetch_source(self, search_id: int, source_name: str):
     """Fetch one source. A failing source reports 'failed' and never breaks the search."""

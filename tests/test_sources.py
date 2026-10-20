@@ -1,4 +1,5 @@
 """Source adapters with mocked HTTP: normalization, remote-only handling, failure isolation."""
+from pathlib import Path
 from unittest import mock
 
 import requests
@@ -28,9 +29,9 @@ class AdapterTests(SimpleTestCase):
     def test_optional_sources_off_without_keys(self):
         with override_settings(ADZUNA_APP_ID="", ADZUNA_APP_KEY="", JSEARCH_API_KEY=""):
             names = [s.name for s in enabled_sources()]
-        self.assertEqual(names, ["remotive", "remoteok", "himalayas", "weworkremotely"])
+        self.assertEqual(names, ["remotive", "remoteok", "himalayas", "weworkremotely", "linkedin"])
         with override_settings(ADZUNA_APP_ID="a", ADZUNA_APP_KEY="b", JSEARCH_API_KEY="k"):
-            self.assertEqual(len(enabled_sources()), 6)
+            self.assertEqual(len(enabled_sources()), 7)
 
     def test_remotive(self):
         payload = {"jobs": [{
@@ -132,3 +133,87 @@ class TaskIsolationTests(TestCase):
         self.assertEqual(by_name["remoteok"].status, "failed")
         self.assertIn("Timeout", by_name["remoteok"].error)
         self.assertEqual(search.jobs.count(), 1)
+
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def li_resp(text="", status=200):
+    r = mock.Mock(status_code=status, text=text)
+    r.raise_for_status = mock.Mock()
+    return r
+
+
+@override_settings(LINKEDIN_REQUEST_DELAY=0)
+class LinkedInTests(SimpleTestCase):
+    """Fixtures are real LinkedIn guest-page HTML, so these tests catch markup drift in the parser."""
+    search_html = (FIXTURES / "linkedin_search.html").read_text()
+    job_html = (FIXTURES / "linkedin_job.html").read_text()
+    src = ALL_SOURCES["linkedin"]
+
+    def test_parse_cards(self):
+        cards = self.src.parse_cards(self.search_html)
+        self.assertEqual(len(cards), 3)
+        c = cards[0]
+        self.assertTrue(c["id"].isdigit() and c["title"] and c["company"])
+        self.assertNotIn("?", c["url"])                     # tracking string removed
+        self.assertTrue(c["url"].startswith("https://"))
+
+    def test_parse_detail(self):
+        d = self.src.parse_detail(self.job_html)
+        self.assertIn("Python", d["description_html"])
+
+    def test_fetch_is_remote_filtered_and_extracts_email(self):
+        def fake(url, **kw):
+            if "seeMoreJobPostings" in url:
+                return li_resp(self.search_html if kw["params"]["start"] == 0 else "")
+            return li_resp(self.job_html)
+
+        with mock.patch.object(self.src, "http_get_raw", side_effect=fake) as get:
+            jobs = self.src.fetch(Q)
+        first = get.call_args_list[0]
+        self.assertEqual(first.kwargs["params"]["f_WT"], "2")           # LinkedIn's remote-only filter
+        self.assertEqual(len(jobs), 3)
+        self.assertTrue(all(j.source == "linkedin" and "linkedin.com" in j.url for j in jobs))
+        self.assertEqual(jobs[0].application_email, "careers@fpt-example.com")
+        self.assertNotIn("<", jobs[0].description)
+
+    def test_throttled_first_request_raises_clear_error(self):
+        with mock.patch.object(self.src, "http_get_raw", return_value=li_resp(status=429)):
+            with self.assertRaises(Exception) as ctx:
+                self.src.fetch(Q)
+        self.assertIn("throttled", str(ctx.exception))
+
+    def test_throttled_mid_search_returns_partial_results(self):
+        calls = {"n": 0}
+
+        def fake(url, **kw):
+            calls["n"] += 1
+            if "seeMoreJobPostings" in url:
+                return li_resp(self.search_html) if calls["n"] == 1 else li_resp(status=429)
+            return li_resp(status=429)
+
+        with mock.patch.object(self.src, "http_get_raw", side_effect=fake):
+            jobs = self.src.fetch(Q)
+        self.assertEqual(len(jobs), 3)                  # cards kept even though details were blocked
+        self.assertEqual(jobs[0].description, "")
+
+    def test_one_throttled_detail_is_retried_after_backoff(self):
+        state = {"blocked_once": False}
+
+        def fake(url, **kw):
+            if "seeMoreJobPostings" in url:
+                return li_resp(self.search_html if kw["params"]["start"] == 0 else "")
+            if not state["blocked_once"]:
+                state["blocked_once"] = True
+                return li_resp(status=429)
+            return li_resp(self.job_html)
+
+        with mock.patch.object(self.src, "http_get_raw", side_effect=fake):
+            jobs = self.src.fetch(Q)
+        self.assertEqual(len(jobs), 3)
+        self.assertTrue(all(j.description for j in jobs))   # the retry recovered the first description
+
+    def test_disabled_by_setting(self):
+        with override_settings(LINKEDIN_ENABLED=False):
+            self.assertNotIn("linkedin", [s.name for s in enabled_sources()])

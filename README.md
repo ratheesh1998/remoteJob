@@ -119,7 +119,7 @@ The bar at the top shows five steps; finished steps get a check and later steps 
 1. **Email**: set up SMTP and send the test email ([section 3](#3-set-up-your-email-smtp)).
 2. **CV**: upload your PDF or DOCX (max 5 MB). Anything the app is unsure about is left blank, never guessed.
 3. **Confirm**: check your designation, alternate titles, skills and location, then click **Confirm and find jobs**. The search can't run before this. Uploading a new CV resets it.
-4. **Find jobs**: click **Find remote jobs**. Sources run in parallel; one failing source never breaks the search and you see each one's status (for example "Remotive: 23, RemoteOK: failed"). Filter by source, date, minimum score and "has email"; sort; tick rows. *Select all* selects the page, *Select all with email* selects every emailable job on every page.
+4. **Find jobs**: click **Find remote jobs**. Sources run in parallel (a LinkedIn search takes about a minute); one failing source never breaks the search and you see each one's status (for example "Remotive: 23, RemoteOK: failed"). Filter by source, date, minimum score and "has email"; sort; tick rows. *Select all* selects the page, *Select all with email* selects every emailable job on every page.
 5. **Review and send**: click **Review N selected applications**. Edit any subject or body, remove jobs, then **Confirm and queue**. Nothing is sent before that.
 
 Then watch the **live progress** page. Emails go out one at a time with a random 20-60 second pause, stop at your daily limit, and are never sent twice to the same recipient for the same job. Temporary SMTP errors retry at most 2 times. The **Applications** page keeps history, the exact email sent, a Retry button for failures, and a CSV export.
@@ -150,6 +150,8 @@ Set these in `.env` (copied from `.env.example`). All are optional.
 | `MIN_MATCH_SCORE_TO_KEEP` | `20` | Jobs scoring lower are hidden |
 | `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `ADZUNA_COUNTRY` | empty / `us` | Turns on the Adzuna source |
 | `JSEARCH_API_KEY` | empty | Turns on the JSearch (RapidAPI) source |
+| `LINKEDIN_ENABLED` | `true` | Include LinkedIn public remote job listings |
+| `LINKEDIN_REQUEST_DELAY` | `2.5` | Seconds between LinkedIn requests (raise it if you get throttled) |
 | `WEB_PORT` / `MAILHOG_PORT` | `8000` / `8025` | Host ports used by Docker Compose |
 
 After editing `.env`: `docker compose up -d`.
@@ -179,6 +181,7 @@ python manage.py runserver 127.0.0.1:8000
 | Test email: timeout or connection refused | Check host and port, and that your network allows outgoing SMTP |
 | "No readable text" on CV upload | The PDF is a scan. Export a text-based PDF or use DOCX |
 | Search stays on "Searching…" | The worker isn't running: `docker compose logs worker`. After 5 minutes unfinished sources are marked failed |
+| LinkedIn shows few jobs, or "throttled" | LinkedIn rate-limits automated requests. Wait a few minutes and search again, raise `LINKEDIN_REQUEST_DELAY`, or set `LINKEDIN_ENABLED=false` |
 | A source shows "failed" | That site was down or rate-limited. The others still work; search again later |
 | Almost every job says "Apply on site" | Normal. Few postings publish an email address |
 | "Could not decrypt" the SMTP password | The encryption key changed. Re-enter the password on Email settings |
@@ -189,7 +192,8 @@ python manage.py runserver 127.0.0.1:8000
 - **Local only.** Docker publishes every port on `127.0.0.1`. There is no login, so never expose the app to the internet.
 - **Your SMTP password** is encrypted at rest with Fernet and is write-only: never shown in a page or written to logs.
 - **Job descriptions** are reduced to plain text when fetched and rendered escaped.
-- **Sources:** Remotive, RemoteOK (credit link shown as its terms require), Himalayas, We Work Remotely (RSS), and optional Adzuna and JSearch. LinkedIn, Indeed and Naukri are deliberately **not** scraped (against their terms). Instead the Find jobs page has **LinkedIn shortcut links** that open LinkedIn's own search for your titles with the Remote filter on. If you want LinkedIn-sourced listings inside the app, the optional JSearch source (RapidAPI key) is a licensed aggregator that includes them.
+- **Sources:** Remotive, RemoteOK (credit link shown as its terms require), Himalayas, We Work Remotely (RSS), **LinkedIn public remote job listings**, and optional Adzuna and JSearch. Indeed and Naukri are not scraped.
+- **LinkedIn:** the adapter reads LinkedIn's public job pages (no login, remote filter on). LinkedIn's terms prohibit automated access and it throttles heavily, so it makes about 25 paced requests per search, may return fewer jobs or no descriptions when throttled, and can be switched off with `LINKEDIN_ENABLED=false`. Only jobs whose description contains an application email can be bulk-emailed. LinkedIn *posts* need a logged-in session, so they are not read; the Find jobs page links to LinkedIn's hiring-post search for you to open in your own browser.
 - **Dedupe:** jobs are the same if they share a normalised URL or the same company and title. **One application per recipient per job** is a database unique constraint.
 - **Daily limit** counts emails sent since local midnight. Extra emails are marked "Not sent (daily limit)" and can be retried later.
 
@@ -206,4 +210,4 @@ Layout: `core/` (SMTP setup, encryption, gate), `cv/` (parsing, extraction), `jo
 
 ## 11. Responsible use
 
-Send only applications that are relevant to you and the role. You are responsible for every email sent from your account and for following the email and anti-spam laws that apply to you and to the recipient (for example CAN-SPAM, GDPR/PECR, CASL). Keep the daily limit low. This tool is not affiliated with any job board it reads from.
+Send only applications that are relevant to you and the role. You are responsible for every email sent from your account and for following the email and anti-spam laws that apply to you and to the recipient (for example CAN-SPAM, GDPR/PECR, CASL). Keep the daily limit low. LinkedIn's terms prohibit automated access to its site; enabling the LinkedIn source is your choice and your risk (turn it off with `LINKEDIN_ENABLED=false`). This tool is not affiliated with any job board it reads from.

@@ -510,3 +510,5 @@ class LinkedInLinkTests(AppTestCase):
         self.assertIn("keywords=Python+Developer&amp;f_WT=2", html)
         self.assertIn("keywords=Backend+Engineer&amp;f_WT=2", html)
         self.assertIn('rel="noopener noreferrer"', html)
+        self.assertIn("search/results/content/", html)          # hiring-posts link
+        self.assertIn("hiring+remote+Python+Developer", html)
