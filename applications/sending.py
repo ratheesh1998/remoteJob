@@ -14,6 +14,7 @@ from core import mailer
 from core.models import SMTPConfig
 from cv.models import CVProfile
 
+from . import contacts
 from .models import Application
 
 log = logging.getLogger(__name__)
@@ -104,6 +105,12 @@ def send_one(app_id: int) -> str | None:
     if not (config and config.is_ready):
         return _fail(app, "SMTP is not configured and verified.")
 
+    reason = contacts.send_block_reason(app)
+    if reason:
+        app.status, app.error = Application.CANCELLED, f"{reason}. Not sent."
+        app.save(update_fields=["status", "error"])
+        return None
+
     limit = config.daily_limit
     if sent_today_count() >= limit:
         app.status = Application.DEFERRED
@@ -148,18 +155,26 @@ def _fail(app: Application, text: str) -> None:
     return None
 
 
-def create_drafts(jobs, profile: CVProfile) -> tuple[list[Application], int]:
-    """Create draft rows for the selected jobs. Returns (drafts, skipped_count)."""
+def create_drafts(jobs, profile: CVProfile) -> tuple[list[Application], list[str]]:
+    """Create draft rows for the selected jobs. Returns (drafts, reasons_for_each_skipped_job)."""
     from .emailing import build_subject
 
-    drafts, skipped = [], 0
+    drafts, skipped = [], []
+    guard = contacts.ContactGuard()
     existing = set(
         Application.objects.exclude(status=Application.DRAFT).values_list("recipient", "job_key")
     )
     for job in jobs:
         recipient = job.application_email.strip().lower()
-        if not recipient or (recipient, job.job_key) in existing:
-            skipped += 1
+        if not recipient:
+            skipped.append("no email address")
+            continue
+        if (recipient, job.job_key) in existing:
+            skipped.append("already applied or queued")
+            continue
+        reason = guard.block_reason(recipient)
+        if reason:
+            skipped.append(reason.lower())
             continue
         try:
             with transaction.atomic():
@@ -168,5 +183,7 @@ def create_drafts(jobs, profile: CVProfile) -> tuple[list[Application], int]:
                     recipient=recipient, subject=build_subject(job.title, profile.full_name), status=Application.DRAFT,
                 ))
         except IntegrityError:
-            skipped += 1
+            skipped.append("already applied or queued")
+            continue
+        guard.claim(recipient)      # two selected jobs with the same address: only the first is written
     return drafts, skipped

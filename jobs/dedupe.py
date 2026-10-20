@@ -26,18 +26,29 @@ def job_key(company: str, title: str) -> str:
     return hashlib.sha1(f"{company_norm}|{_norm(title)}".encode()).hexdigest()
 
 
+def post_key(email: str, url: str, text: str = "") -> str:
+    """Identity of a LinkedIn post job: the address plus the post URL (or the text when there is no URL)."""
+    where = normalize_url(url) or hashlib.sha1((text or "").strip().lower().encode()).hexdigest()[:16]
+    return hashlib.sha1(f"post|{(email or '').strip().lower()}|{where}".encode()).hexdigest()
+
+
+def key_for(job: JobData) -> str:
+    return job.dedupe_key or job_key(job.company, job.title)
+
+
 def dedupe_jobs(jobs: list[JobData]) -> list[JobData]:
     """Keep the first occurrence; fill its gaps from later duplicates (e.g. an email address)."""
     by_key: dict[str, JobData] = {}
     by_url: dict[str, JobData] = {}
     result: list[JobData] = []
     for job in jobs:
-        key, url = job_key(job.company, job.title), normalize_url(job.url)
-        existing = by_key.get(key) or (by_url.get(url) if url else None)
+        key, url = key_for(job), normalize_url(job.url)
+        # Two different posts can share a URL host but never a post URL + email; posts only merge on their own key.
+        existing = by_key.get(key) or (by_url.get(url) if url and not job.dedupe_key else None)
         if existing is None:
             result.append(job)
             by_key[key] = job
-            if url:
+            if url and not job.dedupe_key:
                 by_url[url] = job
             continue
         for attr in ("application_email", "salary", "posted_at", "region"):

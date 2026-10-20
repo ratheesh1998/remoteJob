@@ -1,6 +1,7 @@
 import csv
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib import messages
 from django.db.models import Count
 from django.http import HttpResponse, HttpResponseBadRequest
@@ -12,10 +13,10 @@ from core.models import SMTPConfig
 from cv.models import CVProfile
 from jobs.models import Job, JobSearch
 
-from . import sending
+from . import contacts, sending
 from .emailing import MAX_WORDS, word_count
-from .forms import DraftForm
-from .models import Application
+from .forms import DoNotContactForm, DraftForm
+from .models import Application, DoNotContact
 from .tasks import fill_draft, generate_draft
 
 MAX_SELECTION = 200
@@ -43,8 +44,12 @@ def prepare(request):
     jobs = Job.objects.filter(pk__in=ids, search=search).exclude(application_email="") if search else Job.objects.none()
     Application.objects.filter(status=Application.DRAFT).delete()   # start a fresh review
     drafts, skipped = sending.create_drafts(jobs, profile)
-    if skipped or len(jobs) < len(ids):
-        messages.info(request, f"{len(ids) - len(drafts)} selected job(s) were skipped (no email address, or already applied/queued).")
+    missing = len(ids) - len(jobs)                      # ids that are not emailable jobs of the current search
+    if skipped or missing:
+        from collections import Counter
+        detail = ", ".join(f"{n} {why}" for why, n in Counter(skipped).items())
+        messages.info(request, f"{len(skipped) + missing} selected job(s) were skipped"
+                               + (f" ({detail})" if detail else "") + ".")
     if not drafts:
         return redirect("job_search")
     for draft in drafts:
@@ -155,6 +160,7 @@ def _progress_context(batch):
     config = SMTPConfig.peek()
     next_eta = min((a.scheduled_at for a in apps if a.status == Application.QUEUED and a.scheduled_at), default=None)
     return {"apps": apps, "counts": counts, "active": active, "total": len(apps), "limit_hit": limit_hit,
+            "cancelled": counts[Application.CANCELLED],
             "limit": config.daily_limit if config else 0, "next_eta": next_eta}
 
 
@@ -204,3 +210,31 @@ def export_csv(request):
             a.scheduled_at.isoformat() if a.scheduled_at else "", a.sent_at.isoformat() if a.sent_at else "",
             a.retry_count, a.error, a.job_url, a.subject, a.body)])
     return response
+
+
+@require_POST
+def dnc_from_application(request, pk):
+    """One-click 'do not contact' from the history page: blocks the address and stops anything queued for it."""
+    app = get_object_or_404(Application, pk=pk)
+    entry = contacts.add_to_list(app.recipient, note=f"Added from history ({app.company})")
+    messages.success(request, f"{entry.value} will never be emailed again. Anything still queued for it was cancelled.")
+    return redirect("applications_history")
+
+
+@require_http_methods(["GET", "POST"])
+def do_not_contact(request):
+    form = DoNotContactForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        entry = contacts.add_to_list(form.cleaned_data["value"], form.cleaned_data["note"])
+        messages.success(request, f"Added {entry.value}.")
+        return redirect("applications_dnc")
+    return render(request, "applications/do_not_contact.html", {
+        "form": form, "entries": DoNotContact.objects.all(), "days": settings.CONTACT_CAP_DAYS,
+        "page_hint": "Addresses and domains on this list are never emailed, even if you select them.",
+    })
+
+
+@require_POST
+def dnc_remove(request, pk):
+    get_object_or_404(DoNotContact, pk=pk).delete()
+    return redirect("applications_dnc")

@@ -76,6 +76,22 @@ def assemble_body(profile: CVProfile, company: str, job_title: str, paragraph: s
     )
 
 
+POST_SOURCES = ("linkedin_posts", "linkedin_paste")
+OPT_OUT = "If this isn't the right contact, tell me and I won't write again."
+
+
+def assemble_post_body(profile: CVProfile, job_title: str, paragraph: str, fallback_email: str = "") -> str:
+    """For emails sent because of a LinkedIn post: say so plainly, claim no connection, offer an opt-out."""
+    return (
+        "Hello,\n\n"
+        f"I saw your post on LinkedIn about the {job_title} role and am writing to apply. {paragraph}\n\n"
+        "I have attached my CV and would welcome the chance to discuss how I can contribute.\n\n"
+        f"{OPT_OUT}\n\n"
+        "Thank you for your time.\n\n"
+        f"Best regards,\n{build_signature(profile, fallback_email)}"
+    )
+
+
 def _candidate_facts(profile: CVProfile) -> str:
     years = profile.years_experience
     return "\n".join([
@@ -101,9 +117,13 @@ def _paragraph_is_grounded(paragraph: str, skills_claimed: list[str], profile: C
     return True
 
 
-def generate_body(profile: CVProfile, job_title: str, company: str, description: str, fallback_email: str = ""):
+def generate_body(profile: CVProfile, job_title: str, company: str, description: str, fallback_email: str = "",
+                  source: str = ""):
     """Return (body, personalized: bool, note)."""
     job_text = f"{job_title}\n{description}"
+    is_post = source in POST_SOURCES
+    build = (lambda para: assemble_post_body(profile, job_title, para, fallback_email)) if is_post else \
+        (lambda para: assemble_body(profile, company, job_title, para, fallback_email))
     matched = matching_skills(profile, job_text)
     note = ""
     if llm.is_available():
@@ -117,7 +137,7 @@ def generate_body(profile: CVProfile, job_title: str, company: str, description:
             paragraph = " ".join(str(data.get("paragraph", "")).split())
             claimed = [str(s) for s in data.get("matched_skills", [])]
             if paragraph and _paragraph_is_grounded(paragraph, claimed, profile, job_text):
-                body = assemble_body(profile, company, job_title, paragraph, fallback_email)
+                body = build(paragraph)
                 if word_count(body) <= MAX_WORDS:
                     return body, True, ""
                 note = "AI paragraph was too long; used the standard template."
@@ -128,5 +148,5 @@ def generate_body(profile: CVProfile, job_title: str, company: str, description:
             note = "AI personalization unavailable; used the standard template."
     else:
         note = "No AI key configured; used the standard template."
-    body = assemble_body(profile, company, job_title, template_paragraph(profile, matched), fallback_email)
+    body = build(template_paragraph(profile, matched))
     return body, False, note

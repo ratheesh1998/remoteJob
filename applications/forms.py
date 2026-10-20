@@ -2,6 +2,9 @@ from django import forms
 
 from core.forms import StyledFormMixin
 
+from django.core.exceptions import ValidationError
+
+from . import contacts
 from .models import Application
 
 
@@ -26,3 +29,11 @@ class DraftForm(StyledFormMixin, forms.ModelForm):
         if len(body) > 5000:
             raise forms.ValidationError("The email body is too long (max 5000 characters).")
         return body
+
+
+class DoNotContactForm(StyledFormMixin, forms.Form):
+    value = forms.CharField(max_length=254, label="Email address or domain", help_text="For example jane@acme.com, or acme.com to block everyone at that company.")
+    note = forms.CharField(max_length=200, required=False, label="Note (optional)")
+
+    def clean_value(self):
+        return contacts.normalize_entry(self.cleaned_data["value"])

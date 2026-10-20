@@ -11,7 +11,7 @@
         {% if s.status == 'pending' %}
           <span class="rounded-full bg-slate-100 px-3 py-1 text-slate-600">{{ s.label }}: …</span>
         {% elif s.status == 'ok' %}
-          <span class="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">{{ s.label }}: {{ s.count }}</span>
+          <span class="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">{{ s.label }}: {{ s.count }}{% if s.note %}, <span class="text-amber-700">{{ s.note }}</span>{% endif %}</span>
         {% else %}
           <span class="rounded-full bg-red-50 px-3 py-1 text-red-700" title="{{ s.error }}">{{ s.label }}: failed</span>
         {% endif %}

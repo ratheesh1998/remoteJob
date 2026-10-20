@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Add from a LinkedIn post · RemoteApply{% endblock %}
+{% block content %}
+{% if not formset %}
+<form method="post" class="max-w-3xl space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+  {% csrf_token %}
+  {% include "partials/field.html" with field=paste_form.text %}
+  {% include "partials/field.html" with field=paste_form.url %}
+  <p class="text-xs text-slate-500">Paste several posts at once by putting a line with only <code>---</code> between them. Nothing is fetched from LinkedIn: we only read the text you paste.</p>
+  <div class="flex gap-3">
+    <button class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Read the post(s)</button>
+    <a href="{% url 'job_search' %}" class="rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50">Back to jobs</a>
+  </div>
+</form>
+{% else %}
+<form method="post" class="space-y-5">
+  {% csrf_token %}
+  {{ formset.management_form }}
+  {% if formset.non_form_errors %}<p class="text-sm text-red-600">{{ formset.non_form_errors }}</p>{% endif %}
+  <p class="text-sm text-slate-600">Check what we read from each post and fix anything wrong. Untick a row to skip it. Only the rows you keep are added.</p>
+  {% for form, note, others in rows %}
+  <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+    <label class="mb-3 flex items-center gap-2 text-sm font-medium">{{ form.keep }} Add this job</label>
+    {% if note %}<p class="mb-2 text-xs text-amber-700">{{ note }}</p>{% endif %}
+    {% if others %}<p class="mb-2 text-xs text-slate-600">Other addresses in this post: {{ others|join:", " }} (copy one into the email field if it is the right one).</p>{% endif %}
+    <div class="grid gap-3 sm:grid-cols-2">
+      {% include "partials/field.html" with field=form.email %}
+      {% include "partials/field.html" with field=form.title %}
+      {% include "partials/field.html" with field=form.company %}
+      {% include "partials/field.html" with field=form.skills %}
+    </div>
+    <div class="mt-3">{% include "partials/field.html" with field=form.url %}</div>
+    <details class="mt-3"><summary class="cursor-pointer text-sm text-indigo-600">Post text</summary>
+      <div class="mt-2">{{ form.text }}{% for e in form.text.errors %}<p class="text-xs text-red-600">{{ e }}</p>{% endfor %}</div></details>
+  </div>
+  {% endfor %}
+  <div class="flex gap-3">
+    <button class="rounded-md bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Add to my jobs</button>
+    <a href="{% url 'job_paste' %}" class="rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50">Start over</a>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

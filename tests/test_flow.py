@@ -50,10 +50,12 @@ def make_profile(confirmed=True):
 
 def make_job(search, title="Python Developer", company="Acme", email="jobs@acme.com", **kw):
     from jobs.dedupe import job_key
+    source = kw.pop("source", "remotive")
+    url = kw.pop("url", f"https://acme.com/{title}-{company}".replace(" ", "-"))
     return Job.objects.create(
-        search=search, title=title, company=company, url=f"https://acme.com/{title}-{company}".replace(" ", "-"),
-        source="remotive", application_email=email, match_score=kw.pop("score", 80),
-        description=kw.pop("description", "We use Python and Django."), job_key=job_key(company, title), **kw)
+        search=search, title=title, company=company, url=url,
+        source=source, application_email=email, match_score=kw.pop("score", 80),
+        description=kw.pop("description", "We use Python and Django."), job_key=kw.pop("job_key", job_key(company, title)), **kw)
 
 
 class GateTests(AppTestCase):

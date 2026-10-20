@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Search settings · RemoteApply{% endblock %}
+{% block content %}
+<div class="grid gap-6 md:grid-cols-3">
+  <form method="post" class="space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm md:col-span-2">
+    {% csrf_token %}
+    {% include "partials/field.html" with field=form.provider %}
+    {% include "partials/field.html" with field=form.max_queries_per_run %}
+    <button class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Save</button>
+  </form>
+  <aside class="space-y-4 text-sm">
+    <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">API keys</h2>
+      {% for p in providers %}
+      <p class="mb-1">{{ p.label }}: {% if p.configured %}<span class="font-medium text-emerald-700">key set</span>{% else %}<span class="text-amber-700">no key</span>{% endif %}</p>
+      {% if not p.configured %}<p class="mb-2 text-xs text-slate-500">{{ p.key_hint }}</p>{% endif %}
+      {% endfor %}
+      <p class="mt-2 text-xs text-slate-500">Keys are read from <code>.env</code> and are never displayed.</p>
+      {% if active %}<p class="mt-2 text-xs">Searches will use: <strong>{{ active.label }}</strong></p>{% else %}<p class="mt-2 text-xs text-amber-700">No key is set, so LinkedIn posts are not searched automatically.</p>{% endif %}
+    </div>
+    <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Quota</h2>
+      {% if cfg.quota_remaining is not None %}
+        <p>{{ cfg.quota_remaining }}{% if cfg.quota_limit %} of {{ cfg.quota_limit }}{% endif %} requests remaining</p>
+        <p class="text-xs text-slate-500">as of {{ cfg.quota_checked_at|date:"M j, H:i" }}</p>
+      {% else %}<p class="text-slate-500">Shown after the first search.</p>{% endif %}
+      <p class="mt-2 text-xs text-slate-500">{{ cache_rows }} cached result{{ cache_rows|pluralize }} (kept 24 hours, repeats cost no quota).</p>
+    </div>
+    <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">Google's Programmable Search JSON API is closed to new customers and ends on 2027-01-01. Brave is the recommended provider.</div>
+  </aside>
+</div>
+{% endblock %}

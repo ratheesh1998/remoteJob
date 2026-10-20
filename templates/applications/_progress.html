@@ -5,6 +5,9 @@
     <div class="rounded-lg border bg-white p-4 shadow-sm"><p class="text-xs uppercase text-slate-500">Failed</p><p class="text-2xl font-bold text-red-700">{{ counts.failed }}</p></div>
     <div class="rounded-lg border bg-white p-4 shadow-sm"><p class="text-xs uppercase text-slate-500">Not sent (limit)</p><p class="text-2xl font-bold text-amber-700">{{ counts.deferred }}</p></div>
   </div>
+  {% if cancelled %}
+  <div class="mt-4 rounded-md border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-700">{{ cancelled }} email{{ cancelled|pluralize }} cancelled: the address is on your do-not-contact list or was already emailed in the last 30 days.</div>
+  {% endif %}
   {% if limit_hit %}
   <div class="mt-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
     Daily limit of {{ limit }} emails reached. The remaining applications were not sent. Retry them tomorrow from the Applications page.

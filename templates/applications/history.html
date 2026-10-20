@@ -35,6 +35,7 @@
             {% if a.can_retry %}
             <form method="post" action="{% url 'applications_retry' a.id %}">{% csrf_token %}<button class="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50">Retry</button></form>
             {% endif %}
+            <form method="post" action="{% url 'applications_dnc_add' a.id %}" class="mt-1" onsubmit="return confirm('Never email {{ a.recipient|escapejs }} again?');">{% csrf_token %}<button class="rounded border border-slate-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50">Do not contact</button></form>
           </td>
         </tr>
         {% empty %}

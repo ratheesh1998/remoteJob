@@ -16,6 +16,7 @@ class JobData:
     application_email: str | None = None
     tags: list[str] = field(default_factory=list)
     match_score: int = 0
+    dedupe_key: str | None = None   # set for LinkedIn posts: email + post URL instead of company + title
 
     def to_dict(self) -> dict:
         d = asdict(self)

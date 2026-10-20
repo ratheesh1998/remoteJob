@@ -119,7 +119,7 @@ The bar at the top shows five steps; finished steps get a check and later steps 
 1. **Email**: set up SMTP and send the test email ([section 3](#3-set-up-your-email-smtp)).
 2. **CV**: upload your PDF or DOCX (max 5 MB). Anything the app is unsure about is left blank, never guessed.
 3. **Confirm**: check your designation, alternate titles, skills and location, then click **Confirm and find jobs**. The search can't run before this. Uploading a new CV resets it.
-4. **Find jobs**: click **Find remote jobs**. Sources run in parallel (a LinkedIn search takes about a minute); one failing source never breaks the search and you see each one's status (for example "Remotive: 23, RemoteOK: failed"). Filter by source, date, minimum score and "has email"; sort; tick rows. *Select all* selects the page, *Select all with email* selects every emailable job on every page.
+4. **Find jobs**: click **Find remote jobs**. Sources run in parallel (a LinkedIn search takes about a minute; LinkedIn posts appear if a search API key is set); one failing source never breaks the search and you see each one's status (for example "Remotive: 23, RemoteOK: failed"). Filter by source, date, minimum score and "has email"; sort; tick rows. *Select all* selects the page, *Select all with email* selects every emailable job on every page.
 5. **Review and send**: click **Review N selected applications**. Edit any subject or body, remove jobs, then **Confirm and queue**. Nothing is sent before that.
 
 Then watch the **live progress** page. Emails go out one at a time with a random 20-60 second pause, stop at your daily limit, and are never sent twice to the same recipient for the same job. Temporary SMTP errors retry at most 2 times. The **Applications** page keeps history, the exact email sent, a Retry button for failures, and a CSV export.
@@ -131,6 +131,28 @@ Most employers collect applications through their own forms. A job can be emaile
 ### Delete everything
 
 Footer link **Delete all my data** (type `DELETE`) wipes your CV and its file, jobs, applications and SMTP settings.
+
+## 5b. LinkedIn hiring posts with an HR email
+
+Many recruiters post "send your CV to ..." on LinkedIn instead of using a job board. RemoteApply can list those posts next to the normal jobs.
+
+**How posts are found (and what is never done).** RemoteApply never logs in to LinkedIn, never uses cookies, a browser or a proxy, and never fetches linkedin.com for this feature. It asks an **official search API** (Brave Search API, or Google Programmable Search) for public `linkedin.com/posts` results from the last 30 days and reads only the title, URL and snippet the API returns.
+
+1. Get a key at <https://brave.com/search/api/> and put it in `.env`: `BRAVE_API_KEY=...` (then `docker compose up -d`). Google's JSON API (`GOOGLE_CSE_KEY` + `GOOGLE_CSE_ID`) is **closed to new customers and ends 2027-01-01**, so Brave is recommended.
+2. Open **Search settings** to choose the provider and the maximum queries per search (default 6; each query uses one request from your quota). The page shows whether a key is set (never the key) and your remaining quota. Results are cached for 24 hours, so repeating a search costs nothing.
+3. Click **Find remote jobs** as usual. Posts appear as **LinkedIn post** with a **View post** link and flow through the same preview, queue, send and history steps.
+
+**Email extraction is strict.** An address is kept only if it passes all of these: valid syntax; not no-reply / donotreply / privacy / legal style mailboxes; not a linkedin.com address; not an image-like name such as `logo@2x.png`; not cut off by an ellipsis in the snippet (a truncated address may be wrong); and its domain has an **MX record** (a DNS timeout keeps the address, only a definite "no mail server" drops it). Posts without a usable email are not listed. Because search snippets often cut posts short, only a fraction of results contain an email.
+
+**Add from a LinkedIn post (reliable fallback).** On the Find jobs page, click *add a post you found yourself*. Paste the text of a post (several posts separated by a line with only `---`), check the parsed email, title, company and skills, and save. Pasted jobs are marked **LinkedIn post (pasted)** and are kept across new searches. Title and company are `null`/blank when the text doesn't say; nothing is invented.
+
+**Safety and respect for recipients**
+
+- **Do not contact** (top menu): any address or whole domain on the list is never queued or sent, and the row is disabled in the results. The history page has a one-click **Do not contact** button that also cancels anything still queued for that address.
+- **Contact cap:** the same address is never emailed more than once in 30 days (`CONTACT_CAP_DAYS`), across all jobs. Held-back rows say so.
+- **Honest emails:** emails for posts say "I saw your post on LinkedIn about the {title} role", never claim a personal connection or invented experience, and end with "If this isn't the right contact, tell me and I won't write again."
+- **Privacy:** only the email, post URL and snippet are stored. **Delete all my data** also wipes post jobs, the search cache, the do-not-contact list and the search settings.
+- These emails come from public hiring posts. Use them only to apply for the advertised role.
 
 ## 6. Configuration reference
 
@@ -150,6 +172,11 @@ Set these in `.env` (copied from `.env.example`). All are optional.
 | `MIN_MATCH_SCORE_TO_KEEP` | `20` | Jobs scoring lower are hidden |
 | `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `ADZUNA_COUNTRY` | empty / `us` | Turns on the Adzuna source |
 | `JSEARCH_API_KEY` | empty | Turns on the JSearch (RapidAPI) source |
+| `SEARCH_PROVIDER` | `brave` | `brave` or `google`: which official search API finds LinkedIn posts |
+| `BRAVE_API_KEY` | empty | Turns on LinkedIn post search (Brave Search API) |
+| `GOOGLE_CSE_KEY`, `GOOGLE_CSE_ID` | empty | Alternative provider (closed to new customers, ends 2027-01-01) |
+| `SEARCH_MAX_QUERIES` | `6` | Default max queries per search (editable in Search settings) |
+| `CONTACT_CAP_DAYS` | `30` | Never email the same address more than once in this many days |
 | `LINKEDIN_ENABLED` | `true` | Include LinkedIn public remote job listings |
 | `LINKEDIN_REQUEST_DELAY` | `2.5` | Seconds between LinkedIn requests (raise it if you get throttled) |
 | `WEB_PORT` / `MAILHOG_PORT` | `8000` / `8025` | Host ports used by Docker Compose |
@@ -181,6 +208,8 @@ python manage.py runserver 127.0.0.1:8000
 | Test email: timeout or connection refused | Check host and port, and that your network allows outgoing SMTP |
 | "No readable text" on CV upload | The PDF is a scan. Export a text-based PDF or use DOCX |
 | Search stays on "Searching…" | The worker isn't running: `docker compose logs worker`. After 5 minutes unfinished sources are marked failed |
+| No LinkedIn posts found | Normal: search snippets often cut posts short, so few contain an email. Check Search settings shows "key set", or use *add a post you found yourself* |
+| "Brave rate limit or monthly quota reached" | You used your API quota. Lower the max queries, wait for the reset, or use the paste page |
 | LinkedIn shows few jobs, or "throttled" | LinkedIn rate-limits automated requests. Wait a few minutes and search again, raise `LINKEDIN_REQUEST_DELAY`, or set `LINKEDIN_ENABLED=false` |
 | A source shows "failed" | That site was down or rate-limited. The others still work; search again later |
 | Almost every job says "Apply on site" | Normal. Few postings publish an email address |
@@ -193,7 +222,7 @@ python manage.py runserver 127.0.0.1:8000
 - **Your SMTP password** is encrypted at rest with Fernet and is write-only: never shown in a page or written to logs.
 - **Job descriptions** are reduced to plain text when fetched and rendered escaped.
 - **Sources:** Remotive, RemoteOK (credit link shown as its terms require), Himalayas, We Work Remotely (RSS), **LinkedIn public remote job listings**, and optional Adzuna and JSearch. Indeed and Naukri are not scraped.
-- **LinkedIn:** the adapter reads LinkedIn's public job pages (no login, remote filter on). LinkedIn's terms prohibit automated access and it throttles heavily, so it makes about 25 paced requests per search, may return fewer jobs or no descriptions when throttled, and can be switched off with `LINKEDIN_ENABLED=false`. Only jobs whose description contains an application email can be bulk-emailed. LinkedIn *posts* need a logged-in session, so they are not read; the Find jobs page links to LinkedIn's hiring-post search for you to open in your own browser.
+- **LinkedIn:** the adapter reads LinkedIn's public job pages (no login, remote filter on). LinkedIn's terms prohibit automated access and it throttles heavily, so it makes about 25 paced requests per search, may return fewer jobs or no descriptions when throttled, and can be switched off with `LINKEDIN_ENABLED=false`. Only jobs whose description contains an application email can be bulk-emailed. LinkedIn *posts* are found separately and never by fetching linkedin.com: see section 5b.
 - **Dedupe:** jobs are the same if they share a normalised URL or the same company and title. **One application per recipient per job** is a database unique constraint.
 - **Daily limit** counts emails sent since local midnight. Extra emails are marked "Not sent (daily limit)" and can be retried later.
 

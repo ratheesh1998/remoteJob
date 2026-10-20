@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from cv.models import CVProfile
 
-from .dedupe import dedupe_jobs, job_key
+from .dedupe import dedupe_jobs, key_for
 from .models import Job, JobSearch, SourceResult
 from .scoring import is_relevant, match_score
 from .sources import enabled_sources
@@ -25,10 +25,12 @@ def start_search(profile: CVProfile) -> JobSearch:
 
     # Only the latest search is kept. Applications keep their own copy of the job details.
     Application.objects.filter(status=Application.DRAFT).delete()
-    JobSearch.objects.all().delete()
+    pinned_ids = list(Job.objects.filter(pinned=True).values_list("id", flat=True))   # pasted posts survive
     search = JobSearch.objects.create(
         designation=profile.designation, titles=profile.search_titles, skills=list(profile.skills or []),
     )
+    Job.objects.filter(pk__in=pinned_ids).update(search=search)
+    JobSearch.objects.exclude(pk=search.pk).delete()
     sources = enabled_sources()
     SourceResult.objects.bulk_create(
         [SourceResult(search=search, name=s.name, label=s.label) for s in sources]
@@ -38,11 +40,12 @@ def start_search(profile: CVProfile) -> JobSearch:
     return search
 
 
-def record_source_result(search_id: int, name: str, jobs: list[JobData] | None, error: str = "") -> None:
+def record_source_result(search_id: int, name: str, jobs: list[JobData] | None, error: str = "", note: str = "") -> None:
     """Called by the task. Marks one source done and merges when it was the last one."""
     SourceResult.objects.filter(search_id=search_id, name=name).update(
         status=SourceResult.FAILED if error else SourceResult.OK,
         error=error[:1000],
+        note=note[:200],
         count=len(jobs or []),
         payload=[j.to_dict() for j in jobs or []],
         finished_at=timezone.now(),
@@ -70,11 +73,13 @@ def merge_results(search_id: int) -> None:
     jobs = prepare_jobs(all_jobs, search.designation, search.titles[1:], search.skills)
 
     with transaction.atomic():
+        already = set(search.jobs.values_list("job_key", flat=True))    # pinned (pasted) jobs already here
+        jobs = [j for j in jobs if key_for(j) not in already]
         Job.objects.bulk_create([
             Job(search=search, title=j.title, company=j.company, region=j.region, description=j.description,
                 salary=j.salary, source=j.source, url=j.url, posted_at=j.posted_at,
                 application_email=j.application_email or "", match_score=j.match_score,
-                job_key=job_key(j.company, j.title))
+                job_key=key_for(j))
             for j in jobs
         ])
         per_source: dict[str, int] = {}
@@ -84,7 +89,7 @@ def merge_results(search_id: int) -> None:
             src.count = per_source.get(src.name, 0) if src.status == SourceResult.OK else 0
             src.payload = []
             src.save(update_fields=["count", "payload"])
-        search.total_jobs = len(jobs)
+        search.total_jobs = search.jobs.count()
         search.status = JobSearch.DONE
         search.finished_at = timezone.now()
         search.save(update_fields=["total_jobs", "status", "finished_at"])

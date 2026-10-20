@@ -31,6 +31,10 @@ class BaseSource(ABC):
     def fetch(self, query: SearchQuery) -> list[JobData]:
         ...
 
+    def fetch_report(self, query: SearchQuery):
+        """(jobs, note). The note is shown next to the source status, e.g. '2 of 6 queries failed'."""
+        return self.fetch(query), ""
+
     def http_get(self, url: str, **kwargs) -> requests.Response:
         headers = {"User-Agent": USER_AGENT, **kwargs.pop("headers", {})}
         resp = requests.get(url, headers=headers, timeout=settings.JOB_SOURCE_TIMEOUT, **kwargs)

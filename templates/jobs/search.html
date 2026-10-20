@@ -15,15 +15,24 @@
 </div>
 
 <div class="mb-5 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
-  <p><span class="font-medium">LinkedIn jobs</span> are included in the search above. <span class="font-medium">LinkedIn posts</span> need your own login, so RemoteApply can't read them. Open them yourself:</p>
-  <ul class="mt-2 space-y-1">
+  <p class="font-medium">LinkedIn hiring posts with an HR email</p>
+  {% if not posts_panel.configured %}
+    <p class="mt-1">Not searched automatically yet: add a <code>BRAVE_API_KEY</code> to your <code>.env</code> file (see <a class="underline" href="{% url 'search_settings' %}">Search settings</a>). You can always <a class="font-medium underline" href="{% url 'job_paste' %}">add a post you found yourself</a>.</p>
+  {% elif posts_panel.failed %}
+    <p class="mt-1 text-red-800">The post search failed: {{ posts_panel.error }}</p>
+  {% elif posts_panel.ran and posts_panel.found == 0 %}
+    <p class="mt-1">No posts with an email were found this time. Search snippets often cut posts short, so only a fraction contain an email. Try <a class="font-medium underline" href="{% url 'job_paste' %}">pasting a post</a> you found yourself.</p>
+  {% else %}
+    <p class="mt-1">Searched with {{ posts_panel.provider }}{% if posts_panel.found %}: {{ posts_panel.found }} found{% endif %}. <a class="underline" href="{% url 'job_paste' %}">Add a post you found yourself</a> &middot; <a class="underline" href="{% url 'search_settings' %}">Search settings</a></p>
+  {% endif %}
+  <p class="mt-3 text-xs text-sky-800">Or look yourself in your own browser (RemoteApply does not fetch LinkedIn for posts):</p>
+  <ul class="mt-1 space-y-1">
   {% for l in linkedin_links %}
     <li>{{ l.title }}:
       <a href="{{ l.posts_url }}" target="_blank" rel="noopener noreferrer" class="font-medium text-sky-800 underline">hiring posts (past week) &#8599;</a>
       &middot; <a href="{{ l.url }}" target="_blank" rel="noopener noreferrer" class="text-sky-800 underline">remote jobs on LinkedIn &#8599;</a></li>
   {% endfor %}
   </ul>
-  <p class="mt-2 text-xs text-sky-700">If a post lists an email address, apply from your mail client or add it yourself.</p>
 </div>
 
 {% include "jobs/_progress.html" with sources=search.sources.all %}

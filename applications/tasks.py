@@ -21,7 +21,8 @@ def fill_draft(app: Application) -> None:
     config = SMTPConfig.peek()
     description = app.job.description if app.job else ""
     body, personalized, note = generate_body(
-        profile, app.job_title, app.company, description, fallback_email=config.from_email if config else "")
+        profile, app.job_title, app.company, description, fallback_email=config.from_email if config else "",
+        source=app.job.source if app.job else "")
     app.body, app.personalized, app.draft_note, app.draft_ready = body, personalized, note, True
     app.save(update_fields=["body", "personalized", "draft_note", "draft_ready"])
 

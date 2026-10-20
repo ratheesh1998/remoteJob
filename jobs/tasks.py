@@ -23,7 +23,7 @@ def fetch_source(self, search_id: int, source_name: str):
         return {"source": source_name, "ok": False}
     query = SearchQuery(designation=search.designation, titles=search.titles, skills=search.skills)
     try:
-        jobs = get_source(source_name).fetch(query)
+        jobs, note = get_source(source_name).fetch_report(query)
     except Exception as exc:
         if self.request.retries < self.max_retries:
             log.warning("Source %s failed (%s); retry %d", source_name, exc, self.request.retries + 1)
@@ -31,7 +31,7 @@ def fetch_source(self, search_id: int, source_name: str):
         log.error("Source %s failed permanently: %s", source_name, exc)
         record_source_result(search_id, source_name, None, error=_short_error(exc))
         return {"source": source_name, "ok": False}
-    record_source_result(search_id, source_name, jobs)
+    record_source_result(search_id, source_name, jobs, note=note)
     return {"source": source_name, "ok": True, "count": len(jobs)}
 
 

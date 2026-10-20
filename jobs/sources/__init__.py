@@ -3,6 +3,7 @@ from .base import BaseSource, SearchQuery
 from .himalayas import HimalayasSource
 from .jsearch import JSearchSource
 from .linkedin import LinkedInSource
+from .linkedin_posts import LinkedInPostsViaSearch
 from .remoteok import RemoteOKSource
 from .remotive import RemotiveSource
 from .weworkremotely import WeWorkRemotelySource
@@ -10,7 +11,7 @@ from .weworkremotely import WeWorkRemotelySource
 ALL_SOURCES: dict[str, BaseSource] = {
     s.name: s
     for s in (RemotiveSource(), RemoteOKSource(), HimalayasSource(), WeWorkRemotelySource(),
-              LinkedInSource(), AdzunaSource(), JSearchSource())
+              LinkedInSource(), LinkedInPostsViaSearch(), AdzunaSource(), JSearchSource())
 }
 
 

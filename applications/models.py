@@ -6,9 +6,10 @@ from django.utils import timezone
 
 class Application(models.Model):
     DRAFT, QUEUED, SENDING, SENT, FAILED, DEFERRED = "draft", "queued", "sending", "sent", "failed", "deferred"
+    CANCELLED = "cancelled"
     STATUS_CHOICES = [
         (DRAFT, "Draft"), (QUEUED, "Queued"), (SENDING, "Sending"), (SENT, "Sent"),
-        (FAILED, "Failed"), (DEFERRED, "Not sent (daily limit)"),
+        (FAILED, "Failed"), (DEFERRED, "Not sent (daily limit)"), (CANCELLED, "Cancelled (do not contact)"),
     ]
     ACTIVE = (QUEUED, SENDING)
 
@@ -52,3 +53,21 @@ class Application(models.Model):
 
     def __str__(self):
         return f"{self.job_title} -> {self.recipient} ({self.status})"
+
+
+class DoNotContact(models.Model):
+    """An email address or a whole domain that must never be emailed."""
+    EMAIL, DOMAIN = "email", "domain"
+    value = models.CharField(max_length=254, unique=True)   # lowercased; a domain has no "@"
+    note = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["value"]
+
+    @property
+    def kind(self) -> str:
+        return self.EMAIL if "@" in self.value else self.DOMAIN
+
+    def __str__(self):
+        return self.value

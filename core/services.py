@@ -7,13 +7,16 @@ from django.db import transaction
 @transaction.atomic
 def delete_all_data() -> None:
     """Wipe the CV (and its file), jobs, applications and SMTP config."""
-    from applications.models import Application
+    from applications.models import Application, DoNotContact
     from cv.models import CVProfile
-    from jobs.models import Job, JobSearch, SourceResult
+    from jobs.models import Job, JobSearch, SearchCache, SearchSettings, SourceResult
 
     from .models import SMTPConfig
 
     Application.objects.all().delete()
+    DoNotContact.objects.all().delete()
+    SearchCache.objects.all().delete()        # cached post snippets contain email addresses
+    SearchSettings.objects.all().delete()
     Job.objects.all().delete()
     SourceResult.objects.all().delete()
     JobSearch.objects.all().delete()
