@@ -11,7 +11,7 @@ from django.views.decorators.http import require_GET, require_POST
 from applications.models import Application
 from cv.models import CVProfile
 
-from . import services
+from . import external, services
 from .forms import SORT_FIELDS, JobFilterForm
 from .models import Job, JobSearch
 from .sources import ALL_SOURCES, enabled_sources
@@ -39,6 +39,7 @@ def job_search(request):
     return render(request, "jobs/search.html", {
         "profile": profile, "search": search,
         "filter_form": JobFilterForm(request.GET or None),
+        "linkedin_links": external.linkedin_links(profile.search_titles),
         "optional_off": [s.label for s in ALL_SOURCES.values() if not s.is_enabled()],
         "page_hint": "Search remote jobs matching your CV, tick the ones you like, then review the emails.",
         **_results_context(request, search),

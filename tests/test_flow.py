@@ -495,3 +495,18 @@ class UnencryptedSMTPTests(AppTestCase):
         self.assertEqual(r.status_code, 302)
         self.assertEqual(SMTPConfig.load().security, "none")
 
+
+
+class LinkedInLinkTests(AppTestCase):
+    def test_search_page_links_to_linkedin_remote_search(self):
+        from jobs.external import linkedin_remote_search_url
+        self.make_smtp()
+        p = make_profile()
+        p.alternate_titles = ["Backend Engineer"]
+        p.save()
+        url = linkedin_remote_search_url("Python Developer")
+        self.assertEqual(url, "https://www.linkedin.com/jobs/search/?keywords=Python+Developer&f_WT=2")
+        html = self.client.get("/jobs/").content.decode()
+        self.assertIn("keywords=Python+Developer&amp;f_WT=2", html)
+        self.assertIn("keywords=Backend+Engineer&amp;f_WT=2", html)
+        self.assertIn('rel="noopener noreferrer"', html)

@@ -189,7 +189,7 @@ python manage.py runserver 127.0.0.1:8000
 - **Local only.** Docker publishes every port on `127.0.0.1`. There is no login, so never expose the app to the internet.
 - **Your SMTP password** is encrypted at rest with Fernet and is write-only: never shown in a page or written to logs.
 - **Job descriptions** are reduced to plain text when fetched and rendered escaped.
-- **Sources:** Remotive, RemoteOK (credit link shown as its terms require), Himalayas, We Work Remotely (RSS), and optional Adzuna and JSearch. LinkedIn, Indeed and Naukri are deliberately **not** scraped.
+- **Sources:** Remotive, RemoteOK (credit link shown as its terms require), Himalayas, We Work Remotely (RSS), and optional Adzuna and JSearch. LinkedIn, Indeed and Naukri are deliberately **not** scraped (against their terms). Instead the Find jobs page has **LinkedIn shortcut links** that open LinkedIn's own search for your titles with the Remote filter on. If you want LinkedIn-sourced listings inside the app, the optional JSearch source (RapidAPI key) is a licensed aggregator that includes them.
 - **Dedupe:** jobs are the same if they share a normalised URL or the same company and title. **One application per recipient per job** is a database unique constraint.
 - **Daily limit** counts emails sent since local midnight. Extra emails are marked "Not sent (daily limit)" and can be retried later.
 
